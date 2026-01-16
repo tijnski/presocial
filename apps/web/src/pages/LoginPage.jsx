@@ -1,170 +1,255 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { MessageCircle, Mail, Lock, User, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Wallet, X, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+function initiateWeb3Login() {
+  const redirect = encodeURIComponent(window.location.origin + '/');
+  window.location.href = `https://web3.presearch.com/web3-login?redirect=${redirect}`;
+}
+
 function LoginPage() {
-  const [isRegister, setIsRegister] = useState(false);
+  const [loginMethod, setLoginMethod] = useState(null); // null, 'email'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login, register } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/';
 
-  const handleSubmit = async (e) => {
+  const handleEmailLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      if (isRegister) {
-        await register({ email, password, name });
-      } else {
-        await login(email, password);
-      }
+      await login(email, password);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.message || 'Authentication failed');
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const resetLoginMethod = () => {
+    setLoginMethod(null);
+    setError('');
+    setEmail('');
+    setPassword('');
+  };
+
   return (
-    <div className="min-h-screen bg-dark-900 flex flex-col">
-      {/* Header */}
-      <header className="p-4">
-        <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back to PreSocial</span>
-        </Link>
-      </header>
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#0a0f1a' }}>
+      {/* Background gradient effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute -top-40 -right-40 w-[700px] h-[700px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(2, 61, 135, 0.4) 0%, transparent 60%)',
+            filter: 'blur(60px)',
+          }}
+        />
+        <div
+          className="absolute -bottom-40 -left-40 w-[600px] h-[600px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(0, 16, 33, 0.6) 0%, transparent 60%)',
+            filter: 'blur(60px)',
+          }}
+        />
+      </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-social to-presearch flex items-center justify-center mx-auto mb-4">
-              <MessageCircle className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white">
-              {isRegister ? 'Create Account' : 'Welcome Back'}
-            </h1>
-            <p className="text-gray-400 mt-2">
-              {isRegister
-                ? 'Join PreSocial with your PreSuite account'
-                : 'Sign in with your PreSuite account'}
-            </p>
+      {/* Login Card - Always dark gradient (presearch-web style) */}
+      <div
+        className="relative z-10 w-full max-w-sm mx-4 p-8 rounded-lg"
+        style={{
+          background: 'linear-gradient(45deg, #023d87, #001021)',
+        }}
+      >
+        {/* Close button when in a login method */}
+        {loginMethod && (
+          <button
+            onClick={resetLoginMethod}
+            className="absolute top-4 right-4 text-white/60 hover:opacity-60 transition-opacity"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Logo & Header */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+            <MessageCircle className="w-6 h-6 text-white" />
           </div>
+          {!loginMethod && (
+            <Link
+              to="/"
+              className="text-white/60 hover:opacity-60 transition-opacity"
+            >
+              <X className="w-5 h-5" />
+            </Link>
+          )}
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="glass-panel p-6 space-y-4">
-            {error && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/20 text-red-400 text-sm">
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+        <div className="mb-6">
+          <h1 className="text-xl text-white mb-2">
+            {loginMethod === 'email' ? 'Log in with Email' : 'Log In.'}
+          </h1>
+          <p className="text-sm text-gray-300 font-light">
+            {loginMethod === 'email'
+              ? 'Enter your credentials to access your account'
+              : 'Sign in to access PreSocial and join the conversation.'}
+          </p>
+        </div>
 
-            {isRegister && (
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                  Display Name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
-                    className="glass-input w-full pl-10"
-                    required={isRegister}
-                  />
-                </div>
-              </div>
-            )}
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 rounded-lg flex items-center gap-3 bg-red-500/15 border border-red-500/30">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
 
+        {/* Login Method Selection */}
+        {!loginMethod && (
+          <div className="flex flex-col space-y-2">
+            {/* Email Login Button */}
+            <button
+              onClick={() => setLoginMethod('email')}
+              className="bg-gray-100 font-semibold text-sm text-black w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity"
+            >
+              <Mail className="mr-2 w-5 h-5" />
+              <span>Log in with Email</span>
+            </button>
+
+            {/* Web3 Login Button */}
+            <button
+              onClick={initiateWeb3Login}
+              className="bg-gray-100 font-semibold text-sm text-black w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity"
+            >
+              <Wallet className="mr-2 w-5 h-5" />
+              <span>Log in with Web3</span>
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 py-4">
+              <div className="flex-1 h-px bg-white/20" />
+              <span className="text-xs text-gray-400">New to PreSocial?</span>
+              <div className="flex-1 h-px bg-white/20" />
+            </div>
+
+            {/* Get PreMail Button */}
+            <a
+              href="https://presuite.eu/register"
+              className="bg-[#127FFF] font-semibold text-sm text-white w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity"
+            >
+              <Mail className="mr-2 w-5 h-5" />
+              <span>Get a @premail.site address</span>
+            </a>
+          </div>
+        )}
+
+        {/* Email Login Form */}
+        {loginMethod === 'email' && (
+          <form onSubmit={handleEmailLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="glass-input w-full pl-10"
-                  required
-                />
-              </div>
+              <label className="block text-xs text-white mb-1">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@premail.site"
+                required
+                autoFocus
+                className="w-full p-2.5 px-3 rounded-md outline-none bg-gray-100 text-black placeholder-gray-400 text-sm"
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                Password
-              </label>
+              <label className="block text-xs text-white mb-1">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Your password"
-                  className="glass-input w-full pl-10"
+                  placeholder="Enter your password"
                   required
-                  minLength={8}
+                  className="w-full p-2.5 px-3 pr-10 rounded-md outline-none bg-gray-100 text-black placeholder-gray-400 text-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
+            </div>
+
+            <div className="text-right">
+              <a
+                href="https://presuite.eu/forgot-password"
+                className="text-xs text-[#127FFF] hover:opacity-60 transition-opacity"
+              >
+                Forgot password?
+              </a>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-lg bg-gradient-to-r from-social to-presearch text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full py-2.5 rounded-md font-semibold text-white text-sm transition-opacity hover:opacity-60 disabled:opacity-50 disabled:cursor-not-allowed bg-[#127FFF]"
             >
-              {loading ? 'Please wait...' : isRegister ? 'Create Account' : 'Sign In'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Signing in...
+                </span>
+              ) : (
+                'Log in'
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={resetLoginMethod}
+              className="w-full py-2 text-sm text-gray-300 hover:opacity-60 transition-opacity"
+            >
+              ← Back to login options
             </button>
           </form>
+        )}
 
-          {/* Toggle */}
-          <p className="text-center mt-6 text-gray-400">
-            {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setError('');
-              }}
-              className="text-social hover:underline font-medium"
-            >
-              {isRegister ? 'Sign In' : 'Create one'}
-            </button>
-          </p>
-
-          {/* PreSuite link */}
-          <p className="text-center mt-4 text-sm text-gray-500">
-            PreSocial uses{' '}
-            <a
-              href="https://presuite.eu"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-presearch hover:underline"
-            >
-              PreSuite
-            </a>{' '}
-            for authentication
-          </p>
-        </div>
+        {/* Footer text */}
+        {!loginMethod && (
+          <div className="text-xs text-gray-400 mt-6 text-center">
+            <p>
+              By logging in you agree to our{' '}
+              <a href="/terms" className="text-[#127FFF] underline hover:opacity-60 transition-opacity">Terms of Service</a>
+              {' '}and{' '}
+              <a href="/privacy" className="text-[#127FFF] underline hover:opacity-60 transition-opacity">Privacy Policy</a>.
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Footer */}
+      <footer className="fixed bottom-0 left-0 right-0 py-4 text-center">
+        <div className="flex items-center justify-center gap-2">
+          <Lock className="w-4 h-4 text-gray-500" />
+          <span className="text-sm text-gray-500">
+            Privacy-first social discussions
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }
