@@ -9,6 +9,9 @@ import { secureHeaders } from 'hono/secure-headers';
 import socialRoutes from './routes/social';
 import { rateLimit } from './middleware/rateLimit';
 import { getCacheStats } from '../services/cache';
+import { lemmyService } from '../services/lemmy';
+import { isLocalAuthEnabled } from './middleware/auth';
+import { initStorage, getStorageStats } from '../services/storage';
 
 const app = new Hono();
 
@@ -94,7 +97,33 @@ app.onError((err, c) => {
 // Server startup
 const port = parseInt(process.env.PORT || '3002');
 
-console.log(`
+/**
+ * Verify Lemmy instance is accessible before starting server
+ */
+async function checkLemmyHealth(): Promise<{ healthy: boolean; instance?: string; version?: string; error?: string }> {
+  try {
+    const instanceInfo = await lemmyService.getInstanceInfo();
+    if (instanceInfo) {
+      return {
+        healthy: true,
+        instance: instanceInfo.name,
+        version: instanceInfo.version,
+      };
+    }
+    return { healthy: false, error: 'Could not get instance info' };
+  } catch (error) {
+    return {
+      healthy: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Start the server with health checks
+ */
+async function startServer() {
+  console.log(`
   ____           ____             _       _
  |  _ \\ _ __ ___/ ___|  ___   ___(_) __ _| |
  | |_) | '__/ _ \\___ \\ / _ \\ / __| |/ _\` | |
@@ -103,18 +132,47 @@ console.log(`
 
   Community insights for Presearch - v0.1.0
 
-  Server starting on port ${port}...
-  Lemmy instance: ${process.env.LEMMY_INSTANCE_URL || 'https://lemmy.world'}
-`);
+  Performing startup checks...
+  `);
 
-// Start server - works with both Bun and Node.js
-import { serve } from '@hono/node-server';
+  // Initialize persistent storage
+  initStorage();
+  const storageStats = getStorageStats();
+  console.log(`  ✓ Storage initialized (${storageStats.users} users, ${storageStats.totalVotes} votes, ${storageStats.totalBookmarks} bookmarks)`);
 
-serve({
-  fetch: app.fetch,
-  port,
-}, (info) => {
-  console.log(`  Server listening on http://localhost:${info.port}\n`);
+  // Check configuration
+  const lemmmyUrl = process.env.LEMMY_INSTANCE_URL || 'https://lemmy.world';
+  console.log(`  Lemmy instance: ${lemmmyUrl}`);
+  console.log(`  JWT verification: ${isLocalAuthEnabled() ? 'local (JWT_SECRET configured)' : 'remote (fallback to PreSuite API)'}`);
+
+  // Check Lemmy health
+  console.log(`\n  Checking Lemmy instance health...`);
+  const lemmyHealth = await checkLemmyHealth();
+
+  if (lemmyHealth.healthy) {
+    console.log(`  ✓ Lemmy connected: ${lemmyHealth.instance} (v${lemmyHealth.version})`);
+  } else {
+    console.warn(`  ⚠ Lemmy connection failed: ${lemmyHealth.error}`);
+    console.warn(`  Server will start but some features may be unavailable`);
+  }
+
+  // Start HTTP server
+  console.log(`\n  Starting server on port ${port}...`);
+
+  const { serve } = await import('@hono/node-server');
+
+  serve({
+    fetch: app.fetch,
+    port,
+  }, (info) => {
+    console.log(`  ✓ Server listening on http://localhost:${info.port}\n`);
+  });
+}
+
+// Start the server
+startServer().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });
 
 // Also export for Bun compatibility

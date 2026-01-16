@@ -10,6 +10,17 @@ import {
   generateSearchKey,
   CACHE_TTL,
 } from '../../services/cache';
+import {
+  getUserVotes,
+  setUserVote,
+  getUserBookmarks,
+  addUserBookmark,
+  removeUserBookmark,
+  isPostBookmarked,
+  getUserBookmarksList,
+  type SavedPost,
+} from '../../services/storage';
+import { authMiddleware, getAuthUser, type AuthUser } from '../middleware/auth';
 import type { SearchResponse, PostResponse, TrendingResponse } from '../../types';
 
 const social = new Hono();
@@ -31,42 +42,6 @@ const voteSchema = z.object({
   postId: z.number().positive(),
   vote: z.enum(['up', 'down', 'none']),
 });
-
-// In-memory vote storage (per user session)
-// In production, this would be stored in a database
-const userVotes = new Map<string, Map<number, 'up' | 'down'>>();
-
-function getUserVotes(userId: string): Map<number, 'up' | 'down'> {
-  if (!userVotes.has(userId)) {
-    userVotes.set(userId, new Map());
-  }
-  return userVotes.get(userId)!;
-}
-
-// In-memory bookmark storage (per user)
-// Stores full post data for saved posts
-interface SavedPost {
-  id: number;
-  title: string;
-  url: string;
-  score: number;
-  commentCount: number;
-  community: string;
-  author: string;
-  timestamp: string;
-  thumbnail?: string;
-  excerpt?: string;
-  savedAt: string;
-}
-
-const userBookmarks = new Map<string, Map<number, SavedPost>>();
-
-function getUserBookmarks(userId: string): Map<number, SavedPost> {
-  if (!userBookmarks.has(userId)) {
-    userBookmarks.set(userId, new Map());
-  }
-  return userBookmarks.get(userId)!;
-}
 
 const bookmarkSchema = z.object({
   postId: z.number().positive(),
@@ -289,26 +264,11 @@ social.get('/trending', async (c) => {
  * POST /api/social/vote
  * Vote on a post (requires authentication)
  */
-social.post('/vote', async (c) => {
+social.post('/vote', authMiddleware(), async (c) => {
   try {
-    // Get user ID from authorization header
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getAuthUser(c);
+    if (!user) {
       return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    // Extract user ID from JWT (simplified - in production verify the token)
-    const token = authHeader.split(' ')[1];
-    let userId: string;
-    try {
-      // Decode JWT payload (base64)
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      userId = payload.sub || payload.user_id;
-      if (!userId) {
-        return c.json({ error: 'Invalid token' }, 401);
-      }
-    } catch {
-      return c.json({ error: 'Invalid token format' }, 401);
     }
 
     const body = await c.req.json();
@@ -322,8 +282,8 @@ social.post('/vote', async (c) => {
     }
 
     const { postId, vote } = params.data;
-    const votes = getUserVotes(userId);
-    const previousVote = votes.get(postId);
+    const votes = getUserVotes(user.id);
+    const previousVote = votes.get(postId) || null;
 
     // Calculate score change
     let scoreChange = 0;
@@ -331,15 +291,15 @@ social.post('/vote', async (c) => {
       // Removing vote
       if (previousVote === 'up') scoreChange = -1;
       else if (previousVote === 'down') scoreChange = 1;
-      votes.delete(postId);
+      setUserVote(user.id, postId, null);
     } else if (vote === 'up') {
       if (previousVote === 'down') scoreChange = 2;
       else if (!previousVote) scoreChange = 1;
-      votes.set(postId, 'up');
+      setUserVote(user.id, postId, 'up');
     } else if (vote === 'down') {
       if (previousVote === 'up') scoreChange = -2;
       else if (!previousVote) scoreChange = -1;
-      votes.set(postId, 'down');
+      setUserVote(user.id, postId, 'down');
     }
 
     return c.json({
@@ -359,26 +319,14 @@ social.post('/vote', async (c) => {
  * GET /api/social/votes
  * Get user's votes (requires authentication)
  */
-social.get('/votes', async (c) => {
+social.get('/votes', authMiddleware(), async (c) => {
   try {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getAuthUser(c);
+    if (!user) {
       return c.json({ error: 'Authentication required' }, 401);
     }
 
-    const token = authHeader.split(' ')[1];
-    let userId: string;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      userId = payload.sub || payload.user_id;
-      if (!userId) {
-        return c.json({ error: 'Invalid token' }, 401);
-      }
-    } catch {
-      return c.json({ error: 'Invalid token format' }, 401);
-    }
-
-    const votes = getUserVotes(userId);
+    const votes = getUserVotes(user.id);
     const voteMap: Record<number, 'up' | 'down'> = {};
     votes.forEach((vote, postId) => {
       voteMap[postId] = vote;
@@ -395,23 +343,11 @@ social.get('/votes', async (c) => {
  * POST /api/social/bookmark
  * Save/unsave a post (requires authentication)
  */
-social.post('/bookmark', async (c) => {
+social.post('/bookmark', authMiddleware(), async (c) => {
   try {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getAuthUser(c);
+    if (!user) {
       return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const token = authHeader.split(' ')[1];
-    let userId: string;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      userId = payload.sub || payload.user_id;
-      if (!userId) {
-        return c.json({ error: 'Invalid token' }, 401);
-      }
-    } catch {
-      return c.json({ error: 'Invalid token format' }, 401);
     }
 
     const body = await c.req.json();
@@ -425,12 +361,11 @@ social.post('/bookmark', async (c) => {
     }
 
     const { postId, post } = params.data;
-    const bookmarks = getUserBookmarks(userId);
-    const isCurrentlySaved = bookmarks.has(postId);
+    const isCurrentlySaved = isPostBookmarked(user.id, postId);
 
     if (isCurrentlySaved) {
       // Remove bookmark
-      bookmarks.delete(postId);
+      removeUserBookmark(user.id, postId);
       return c.json({
         success: true,
         postId,
@@ -446,7 +381,7 @@ social.post('/bookmark', async (c) => {
         ...post,
         savedAt: new Date().toISOString(),
       };
-      bookmarks.set(postId, savedPost);
+      addUserBookmark(user.id, savedPost);
 
       return c.json({
         success: true,
@@ -464,33 +399,15 @@ social.post('/bookmark', async (c) => {
  * GET /api/social/bookmarks
  * Get user's saved posts (requires authentication)
  */
-social.get('/bookmarks', async (c) => {
+social.get('/bookmarks', authMiddleware(), async (c) => {
   try {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getAuthUser(c);
+    if (!user) {
       return c.json({ error: 'Authentication required' }, 401);
     }
 
-    const token = authHeader.split(' ')[1];
-    let userId: string;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      userId = payload.sub || payload.user_id;
-      if (!userId) {
-        return c.json({ error: 'Invalid token' }, 401);
-      }
-    } catch {
-      return c.json({ error: 'Invalid token format' }, 401);
-    }
-
-    const bookmarks = getUserBookmarks(userId);
-    const savedPosts: SavedPost[] = [];
-    bookmarks.forEach((post) => {
-      savedPosts.push(post);
-    });
-
-    // Sort by savedAt descending (newest first)
-    savedPosts.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+    // Get sorted bookmarks list from storage
+    const savedPosts = getUserBookmarksList(user.id);
 
     return c.json({
       bookmarks: savedPosts,
@@ -506,23 +423,11 @@ social.get('/bookmarks', async (c) => {
  * GET /api/social/bookmark/:postId
  * Check if a post is bookmarked (requires authentication)
  */
-social.get('/bookmark/:postId', async (c) => {
+social.get('/bookmark/:postId', authMiddleware(), async (c) => {
   try {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getAuthUser(c);
+    if (!user) {
       return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const token = authHeader.split(' ')[1];
-    let userId: string;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      userId = payload.sub || payload.user_id;
-      if (!userId) {
-        return c.json({ error: 'Invalid token' }, 401);
-      }
-    } catch {
-      return c.json({ error: 'Invalid token format' }, 401);
     }
 
     const postId = parseInt(c.req.param('postId'));
@@ -530,8 +435,7 @@ social.get('/bookmark/:postId', async (c) => {
       return c.json({ error: 'Invalid post ID' }, 400);
     }
 
-    const bookmarks = getUserBookmarks(userId);
-    const isSaved = bookmarks.has(postId);
+    const isSaved = isPostBookmarked(user.id, postId);
 
     return c.json({ postId, saved: isSaved });
   } catch (error) {
@@ -551,28 +455,15 @@ const commentSchema = z.object({
  * POST /api/social/comment
  * Create a comment on a post (requires authentication)
  */
-social.post('/comment', async (c) => {
+social.post('/comment', authMiddleware(), async (c) => {
   try {
-    // Require authentication
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getAuthUser(c);
+    if (!user) {
       return c.json({ error: 'Authentication required' }, 401);
     }
 
-    // Extract user info from JWT
-    const token = authHeader.split(' ')[1];
-    let userId: string;
-    let userName: string;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      userId = payload.sub || payload.user_id;
-      userName = payload.name || payload.email?.split('@')[0] || 'PreSocial User';
-      if (!userId) {
-        return c.json({ error: 'Invalid token' }, 401);
-      }
-    } catch {
-      return c.json({ error: 'Invalid token format' }, 401);
-    }
+    // Get display name for attribution
+    const userName = user.name || user.email?.split('@')[0] || 'PreSocial User';
 
     // Validate request body
     const body = await c.req.json();

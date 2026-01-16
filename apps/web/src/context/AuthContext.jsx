@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import authService from '../services/authService';
 
 const AuthContext = createContext(null);
@@ -7,12 +7,24 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Handle token expiration
+  const handleTokenExpired = useCallback(() => {
+    console.debug('[Auth] Token expired, logging out');
+    setUser(null);
+  }, []);
+
+  // Handle token refresh success
+  const handleTokenRefreshed = useCallback((refreshedUser) => {
+    console.debug('[Auth] Token refreshed successfully');
+    setUser(refreshedUser);
+  }, []);
+
   useEffect(() => {
     // Check for existing session on mount
     const initAuth = async () => {
       const storedUser = authService.getStoredUser();
       if (storedUser) {
-        // Verify token is still valid
+        // Verify token is still valid (this also handles refresh if needed)
         const verifiedUser = await authService.verifyToken();
         if (verifiedUser) {
           setUser(verifiedUser);
@@ -22,7 +34,16 @@ export function AuthProvider({ children }) {
     };
 
     initAuth();
-  }, []);
+
+    // Setup automatic token refresh
+    const cleanup = authService.setupTokenRefresh(
+      handleTokenRefreshed,
+      handleTokenExpired
+    );
+
+    // Cleanup on unmount
+    return cleanup;
+  }, [handleTokenExpired, handleTokenRefreshed]);
 
   const login = async (email, password) => {
     const data = await authService.login(email, password);
@@ -36,6 +57,18 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  /**
+   * Login with existing token and user data
+   * Used for Web3 login and other external auth methods
+   */
+  const loginWithToken = async (token, user) => {
+    // Store token and user in localStorage
+    localStorage.setItem('presuite_token', token);
+    localStorage.setItem('presuite_user', JSON.stringify(user));
+    // Update context state
+    setUser(user);
+  };
+
   const logout = async () => {
     await authService.logout();
     setUser(null);
@@ -45,6 +78,7 @@ export function AuthProvider({ children }) {
     user,
     loading,
     login,
+    loginWithToken,
     register,
     logout,
     isAuthenticated: !!user

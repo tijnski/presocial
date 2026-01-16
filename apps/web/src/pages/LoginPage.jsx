@@ -46,12 +46,13 @@ function LoginPage() {
 
     try {
       const result = await web3Login();
-      // Use loginWithToken if available, otherwise store directly
+      // Use loginWithToken if available, otherwise store directly with correct keys
       if (typeof loginWithToken === 'function') {
         await loginWithToken(result.token, result.user);
       } else {
-        localStorage.setItem('presocial_token', result.token);
-        localStorage.setItem('presocial_user', JSON.stringify(result.user));
+        // Use presuite_token for consistency across all PreSuite services
+        localStorage.setItem('presuite_token', result.token);
+        localStorage.setItem('presuite_user', JSON.stringify(result.user));
       }
       navigate(from, { replace: true });
     } catch (err) {

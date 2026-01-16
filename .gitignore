@@ -30,3 +30,6 @@ coverage/
 # Misc
 .cache/
 *.tgz
+
+# Persistent storage (user votes/bookmarks)
+data/
