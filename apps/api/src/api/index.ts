@@ -107,6 +107,17 @@ console.log(`
   Lemmy instance: ${process.env.LEMMY_INSTANCE_URL || 'https://lemmy.world'}
 `);
 
+// Start server - works with both Bun and Node.js
+import { serve } from '@hono/node-server';
+
+serve({
+  fetch: app.fetch,
+  port,
+}, (info) => {
+  console.log(`  Server listening on http://localhost:${info.port}\n`);
+});
+
+// Also export for Bun compatibility
 export default {
   port,
   fetch: app.fetch,
