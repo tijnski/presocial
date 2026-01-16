@@ -1,0 +1,30 @@
+{
+  "name": "presocial",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native social layer for PreSuite - Lemmy-powered community insights",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "cd apps/api && bun run --watch index.ts",
+    "dev:web": "cd apps/web && npm run dev",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "cd apps/api && bun build index.ts --outdir=dist --target=bun",
+    "build:web": "cd apps/web && npm run build",
+    "start": "cd apps/api && bun run dist/index.js",
+    "lint": "npm run lint:api && npm run lint:web",
+    "lint:api": "cd apps/api && eslint src --ext .ts",
+    "lint:web": "cd apps/web && npm run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tijnski/presocial"
+  },
+  "author": "PreSuite Team",
+  "license": "MIT"
+}
