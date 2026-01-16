@@ -1,17 +1,43 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, MessageCircle, TrendingUp, Users, Home } from 'lucide-react';
+import { Search, Menu, X, MessageCircle, TrendingUp, Users, Home, LogIn, LogOut, User, ChevronDown } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
   const navigate = useNavigate();
+  const { user, isAuthenticated, logout, loading } = useAuth();
+
+  // Close user menu on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setUserMenuOpen(false);
+    navigate('/');
+  };
+
+  const getInitials = (name) => {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   return (
@@ -47,6 +73,53 @@ function Header() {
             <NavLink to="/" icon={<Home className="w-5 h-5" />} label="Feed" />
             <NavLink to="/trending" icon={<TrendingUp className="w-5 h-5" />} label="Trending" />
             <NavLink to="/communities" icon={<Users className="w-5 h-5" />} label="Communities" />
+
+            {/* User section */}
+            <div className="ml-3 pl-3 border-l border-white/10">
+              {loading ? (
+                <div className="w-8 h-8 rounded-full bg-dark-700 animate-pulse" />
+              ) : isAuthenticated && user ? (
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-social to-presearch flex items-center justify-center text-white text-sm font-semibold">
+                      {getInitials(user.name)}
+                    </div>
+                    <span className="text-sm text-gray-300 hidden lg:block max-w-24 truncate">
+                      {user.name}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </button>
+
+                  {/* Dropdown menu */}
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 glass-panel py-1 animate-fade-in">
+                      <div className="px-4 py-2 border-b border-white/10">
+                        <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                      </div>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-social to-presearch text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign In
+                </Link>
+              )}
+            </div>
           </nav>
 
           {/* Mobile menu button */}
@@ -86,6 +159,42 @@ function Header() {
             <MobileNavLink to="/" icon={<Home className="w-5 h-5" />} label="Feed" onClick={() => setMobileMenuOpen(false)} />
             <MobileNavLink to="/trending" icon={<TrendingUp className="w-5 h-5" />} label="Trending" onClick={() => setMobileMenuOpen(false)} />
             <MobileNavLink to="/communities" icon={<Users className="w-5 h-5" />} label="Communities" onClick={() => setMobileMenuOpen(false)} />
+
+            {/* Mobile user section */}
+            <div className="pt-3 mt-3 border-t border-white/10">
+              {isAuthenticated && user ? (
+                <>
+                  <div className="flex items-center gap-3 px-3 py-2 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-social to-presearch flex items-center justify-center text-white font-semibold">
+                      {getInitials(user.name)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{user.name}</p>
+                      <p className="text-xs text-gray-400">{user.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-3 px-3 py-3 w-full rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="font-medium">Sign Out</span>
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-3 py-3 rounded-lg text-white bg-gradient-to-r from-social to-presearch"
+                >
+                  <LogIn className="w-5 h-5" />
+                  <span className="font-medium">Sign In</span>
+                </Link>
+              )}
+            </div>
           </nav>
         </div>
       )}
