@@ -1,23 +1,70 @@
 import { Link } from 'react-router-dom';
 import { ArrowBigUp, ArrowBigDown, MessageSquare, Share2, Bookmark, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useVote } from '../context/VoteContext';
+import { useAuth } from '../context/AuthContext';
 
 function PostCard({ post, compact = false }) {
   const formattedDate = formatDistanceToNow(new Date(post.timestamp), { addSuffix: true });
+  const { vote, getVote, getAdjustedScore } = useVote();
+  const { isAuthenticated } = useAuth();
+
+  const currentVote = getVote(post.id);
+  const adjustedScore = getAdjustedScore(post.id, post.score);
+
+  const handleUpvote = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      // Could show a tooltip or redirect to login
+      return;
+    }
+    await vote(post.id, 'up');
+  };
+
+  const handleDownvote = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      return;
+    }
+    await vote(post.id, 'down');
+  };
 
   return (
     <article className="glass-card glass-card-hover p-4 animate-fade-in">
       <div className="flex gap-3">
-        {/* Vote buttons */}
+        {/* Vote buttons - Desktop */}
         <div className="hidden sm:flex flex-col items-center gap-1 pt-1">
-          <button className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-orange-400 transition-colors">
-            <ArrowBigUp className="w-6 h-6" />
+          <button
+            onClick={handleUpvote}
+            className={`p-1 rounded transition-colors ${
+              currentVote === 'up'
+                ? 'bg-orange-500/20 text-orange-400'
+                : 'hover:bg-white/10 text-gray-400 hover:text-orange-400'
+            } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={isAuthenticated ? 'Upvote' : 'Sign in to vote'}
+          >
+            <ArrowBigUp className={`w-6 h-6 ${currentVote === 'up' ? 'fill-current' : ''}`} />
           </button>
-          <span className={`text-sm font-semibold ${post.score > 0 ? 'text-orange-400' : post.score < 0 ? 'text-blue-400' : 'text-gray-400'}`}>
-            {formatScore(post.score)}
+          <span className={`text-sm font-semibold ${
+            currentVote === 'up' ? 'text-orange-400' :
+            currentVote === 'down' ? 'text-blue-400' :
+            adjustedScore > 0 ? 'text-orange-400' :
+            adjustedScore < 0 ? 'text-blue-400' : 'text-gray-400'
+          }`}>
+            {formatScore(adjustedScore)}
           </span>
-          <button className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-blue-400 transition-colors">
-            <ArrowBigDown className="w-6 h-6" />
+          <button
+            onClick={handleDownvote}
+            className={`p-1 rounded transition-colors ${
+              currentVote === 'down'
+                ? 'bg-blue-500/20 text-blue-400'
+                : 'hover:bg-white/10 text-gray-400 hover:text-blue-400'
+            } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={isAuthenticated ? 'Downvote' : 'Sign in to vote'}
+          >
+            <ArrowBigDown className={`w-6 h-6 ${currentVote === 'down' ? 'fill-current' : ''}`} />
           </button>
         </div>
 
@@ -79,14 +126,32 @@ function PostCard({ post, compact = false }) {
           <div className="flex items-center gap-1 mt-3">
             {/* Mobile vote */}
             <div className="flex sm:hidden items-center gap-1 mr-2">
-              <button className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-orange-400 transition-colors">
-                <ArrowBigUp className="w-5 h-5" />
+              <button
+                onClick={handleUpvote}
+                className={`p-1.5 rounded transition-colors ${
+                  currentVote === 'up'
+                    ? 'bg-orange-500/20 text-orange-400'
+                    : 'hover:bg-white/10 text-gray-400 hover:text-orange-400'
+                } ${!isAuthenticated ? 'opacity-50' : ''}`}
+              >
+                <ArrowBigUp className={`w-5 h-5 ${currentVote === 'up' ? 'fill-current' : ''}`} />
               </button>
-              <span className={`text-xs font-semibold ${post.score > 0 ? 'text-orange-400' : 'text-gray-400'}`}>
-                {formatScore(post.score)}
+              <span className={`text-xs font-semibold min-w-6 text-center ${
+                currentVote === 'up' ? 'text-orange-400' :
+                currentVote === 'down' ? 'text-blue-400' :
+                adjustedScore > 0 ? 'text-orange-400' : 'text-gray-400'
+              }`}>
+                {formatScore(adjustedScore)}
               </span>
-              <button className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-blue-400 transition-colors">
-                <ArrowBigDown className="w-5 h-5" />
+              <button
+                onClick={handleDownvote}
+                className={`p-1.5 rounded transition-colors ${
+                  currentVote === 'down'
+                    ? 'bg-blue-500/20 text-blue-400'
+                    : 'hover:bg-white/10 text-gray-400 hover:text-blue-400'
+                } ${!isAuthenticated ? 'opacity-50' : ''}`}
+              >
+                <ArrowBigDown className={`w-5 h-5 ${currentVote === 'down' ? 'fill-current' : ''}`} />
               </button>
             </div>
 

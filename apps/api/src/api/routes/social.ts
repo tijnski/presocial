@@ -27,6 +27,22 @@ const postIdSchema = z.object({
   id: z.coerce.number().positive(),
 });
 
+const voteSchema = z.object({
+  postId: z.number().positive(),
+  vote: z.enum(['up', 'down', 'none']),
+});
+
+// In-memory vote storage (per user session)
+// In production, this would be stored in a database
+const userVotes = new Map<string, Map<number, 'up' | 'down'>>();
+
+function getUserVotes(userId: string): Map<number, 'up' | 'down'> {
+  if (!userVotes.has(userId)) {
+    userVotes.set(userId, new Map());
+  }
+  return userVotes.get(userId)!;
+}
+
 /**
  * GET /api/social/search
  * Search for community discussions relevant to the query
@@ -225,6 +241,112 @@ social.get('/trending', async (c) => {
   } catch (error) {
     console.error('[Social API] Trending error:', error);
     return c.json({ error: 'Failed to get trending discussions' }, 500);
+  }
+});
+
+/**
+ * POST /api/social/vote
+ * Vote on a post (requires authentication)
+ */
+social.post('/vote', async (c) => {
+  try {
+    // Get user ID from authorization header
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    // Extract user ID from JWT (simplified - in production verify the token)
+    const token = authHeader.split(' ')[1];
+    let userId: string;
+    try {
+      // Decode JWT payload (base64)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.sub || payload.user_id;
+      if (!userId) {
+        return c.json({ error: 'Invalid token' }, 401);
+      }
+    } catch {
+      return c.json({ error: 'Invalid token format' }, 401);
+    }
+
+    const body = await c.req.json();
+    const params = voteSchema.safeParse(body);
+
+    if (!params.success) {
+      return c.json({
+        error: 'Invalid vote data',
+        details: params.error.issues,
+      }, 400);
+    }
+
+    const { postId, vote } = params.data;
+    const votes = getUserVotes(userId);
+    const previousVote = votes.get(postId);
+
+    // Calculate score change
+    let scoreChange = 0;
+    if (vote === 'none') {
+      // Removing vote
+      if (previousVote === 'up') scoreChange = -1;
+      else if (previousVote === 'down') scoreChange = 1;
+      votes.delete(postId);
+    } else if (vote === 'up') {
+      if (previousVote === 'down') scoreChange = 2;
+      else if (!previousVote) scoreChange = 1;
+      votes.set(postId, 'up');
+    } else if (vote === 'down') {
+      if (previousVote === 'up') scoreChange = -2;
+      else if (!previousVote) scoreChange = -1;
+      votes.set(postId, 'down');
+    }
+
+    return c.json({
+      success: true,
+      postId,
+      vote: vote === 'none' ? null : vote,
+      previousVote: previousVote || null,
+      scoreChange,
+    });
+  } catch (error) {
+    console.error('[Social API] Vote error:', error);
+    return c.json({ error: 'Failed to record vote' }, 500);
+  }
+});
+
+/**
+ * GET /api/social/votes
+ * Get user's votes (requires authentication)
+ */
+social.get('/votes', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const token = authHeader.split(' ')[1];
+    let userId: string;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.sub || payload.user_id;
+      if (!userId) {
+        return c.json({ error: 'Invalid token' }, 401);
+      }
+    } catch {
+      return c.json({ error: 'Invalid token format' }, 401);
+    }
+
+    const votes = getUserVotes(userId);
+    const voteMap: Record<number, 'up' | 'down'> = {};
+    votes.forEach((vote, postId) => {
+      voteMap[postId] = vote;
+    });
+
+    return c.json({ votes: voteMap });
+  } catch (error) {
+    console.error('[Social API] Get votes error:', error);
+    return c.json({ error: 'Failed to get votes' }, 500);
   }
 });
 

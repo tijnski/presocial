@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { VoteProvider } from './context/VoteContext';
 import Layout from './components/Layout';
 import FeedPage from './pages/FeedPage';
 import TrendingPage from './pages/TrendingPage';
@@ -11,16 +12,18 @@ import LoginPage from './pages/LoginPage';
 function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<Layout />}>
-          <Route index element={<FeedPage />} />
-          <Route path="trending" element={<TrendingPage />} />
-          <Route path="communities" element={<CommunitiesPage />} />
-          <Route path="search" element={<SearchPage />} />
-          <Route path="post/:id" element={<PostPage />} />
-        </Route>
-      </Routes>
+      <VoteProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<Layout />}>
+            <Route index element={<FeedPage />} />
+            <Route path="trending" element={<TrendingPage />} />
+            <Route path="communities" element={<CommunitiesPage />} />
+            <Route path="search" element={<SearchPage />} />
+            <Route path="post/:id" element={<PostPage />} />
+          </Route>
+        </Routes>
+      </VoteProvider>
     </AuthProvider>
   );
 }
