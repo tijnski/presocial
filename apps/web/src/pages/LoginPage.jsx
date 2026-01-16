@@ -1,12 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, Wallet, X, MessageCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Wallet, X, MessageCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
-function initiateWeb3Login() {
-  const redirect = encodeURIComponent(window.location.origin + '/');
-  window.location.href = `https://web3.presearch.com/web3-login?redirect=${redirect}`;
-}
+import { web3Login, isWeb3Available, Web3AuthError } from '../services/web3Auth';
 
 function LoginPage() {
   const [loginMethod, setLoginMethod] = useState(null); // null, 'email'
@@ -15,8 +11,9 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [web3Loading, setWeb3Loading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,11 +34,39 @@ function LoginPage() {
     }
   };
 
+  const handleWeb3Login = async () => {
+    setError('');
+
+    if (!isWeb3Available()) {
+      setError('MetaMask or compatible wallet not found. Please install MetaMask to use Web3 login.');
+      return;
+    }
+
+    setWeb3Loading(true);
+
+    try {
+      const result = await web3Login();
+      // Use loginWithToken if available, otherwise store directly
+      if (typeof loginWithToken === 'function') {
+        await loginWithToken(result.token, result.user);
+      } else {
+        localStorage.setItem('presocial_token', result.token);
+        localStorage.setItem('presocial_user', JSON.stringify(result.user));
+      }
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err instanceof Web3AuthError ? err.message : 'Web3 login failed. Please try again.');
+    } finally {
+      setWeb3Loading(false);
+    }
+  };
+
   const resetLoginMethod = () => {
     setLoginMethod(null);
     setError('');
     setEmail('');
     setPassword('');
+    setWeb3Loading(false);
   };
 
   return (
@@ -129,11 +154,21 @@ function LoginPage() {
 
             {/* Web3 Login Button */}
             <button
-              onClick={initiateWeb3Login}
-              className="bg-gray-100 font-semibold text-sm text-black w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity"
+              onClick={handleWeb3Login}
+              disabled={web3Loading}
+              className="bg-gray-100 font-semibold text-sm text-black w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Wallet className="mr-2 w-5 h-5" />
-              <span>Log in with Web3</span>
+              {web3Loading ? (
+                <>
+                  <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                  <span>Connecting wallet...</span>
+                </>
+              ) : (
+                <>
+                  <Wallet className="mr-2 w-5 h-5" />
+                  <span>Log in with Web3</span>
+                </>
+              )}
             </button>
 
             {/* Divider */}
