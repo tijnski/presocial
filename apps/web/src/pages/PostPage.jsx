@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { preSocialService } from '../services/preSocialService';
 import PostCard from '../components/PostCard';
-import { ArrowLeft, MessageSquare, ArrowBigUp, ChevronDown, ChevronUp } from 'lucide-react';
+import CommentForm from '../components/CommentForm';
+import { ArrowLeft, MessageSquare, ArrowBigUp, ChevronDown, ChevronUp, Reply } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Build a nested comment tree from flat comments
@@ -61,17 +63,12 @@ function PostPage() {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { isAuthenticated } = useAuth();
 
   // Build comment tree from flat comments
   const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
 
-  useEffect(() => {
-    if (id) {
-      loadPost(id);
-    }
-  }, [id]);
-
-  const loadPost = async (postId) => {
+  const loadPost = useCallback(async (postId) => {
     setLoading(true);
     setError(null);
 
@@ -85,7 +82,24 @@ function PostPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      loadPost(id);
+    }
+  }, [id, loadPost]);
+
+  // Handle when a new comment is posted
+  const handleCommentPosted = useCallback((newComment) => {
+    // Refresh comments from server to get proper nesting
+    if (id) {
+      // Small delay to allow Lemmy to process
+      setTimeout(() => {
+        loadPost(id);
+      }, 1000);
+    }
+  }, [id, loadPost]);
 
   if (loading) {
     return (
@@ -126,6 +140,15 @@ function PostPage() {
       {/* Post */}
       <PostCard post={post} />
 
+      {/* Add Comment */}
+      <div className="glass-card p-4">
+        <h3 className="font-semibold text-white mb-4">Add a comment</h3>
+        <CommentForm
+          postId={parseInt(id)}
+          onCommentPosted={handleCommentPosted}
+        />
+      </div>
+
       {/* Comments */}
       <div className="glass-card p-4">
         <div className="flex items-center gap-2 mb-4 pb-4 border-b border-white/10">
@@ -138,14 +161,19 @@ function PostPage() {
         {commentTree.length > 0 ? (
           <div className="space-y-1">
             {commentTree.map((comment) => (
-              <Comment key={comment.id} comment={comment} />
+              <Comment
+                key={comment.id}
+                comment={comment}
+                postId={parseInt(id)}
+                onReplyPosted={handleCommentPosted}
+              />
             ))}
           </div>
         ) : (
           <div className="text-center py-8">
             <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
             <p className="text-gray-400 text-sm">No comments yet</p>
-            <p className="text-gray-500 text-xs mt-1">Be the first to discuss this on Lemmy</p>
+            <p className="text-gray-500 text-xs mt-1">Be the first to start the discussion</p>
           </div>
         )}
       </div>
@@ -153,8 +181,10 @@ function PostPage() {
   );
 }
 
-function Comment({ comment, depth = 0 }) {
+function Comment({ comment, depth = 0, postId, onReplyPosted }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const { isAuthenticated } = useAuth();
   const maxDepth = 6;
   const formattedDate = formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true });
   const hasReplies = comment.replies && comment.replies.length > 0;
@@ -168,6 +198,13 @@ function Comment({ comment, depth = 0 }) {
     'border-purple-500/50',
     'border-pink-500/50',
   ];
+
+  const handleReplyPosted = (newComment) => {
+    setShowReplyForm(false);
+    if (onReplyPosted) {
+      onReplyPosted(newComment);
+    }
+  };
 
   return (
     <div className={`${depth > 0 ? 'ml-3 pl-3 border-l-2 ' + depthColors[depth % depthColors.length] : ''}`}>
@@ -211,9 +248,35 @@ function Comment({ comment, depth = 0 }) {
 
         {/* Comment content */}
         {!collapsed && (
-          <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
-            {comment.content}
-          </div>
+          <>
+            <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
+              {comment.content}
+            </div>
+
+            {/* Reply button */}
+            {isAuthenticated && depth < maxDepth && (
+              <button
+                onClick={() => setShowReplyForm(!showReplyForm)}
+                className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-presearch transition-colors"
+              >
+                <Reply className="w-3 h-3" />
+                {showReplyForm ? 'Cancel' : 'Reply'}
+              </button>
+            )}
+
+            {/* Reply form */}
+            {showReplyForm && (
+              <div className="mt-3 ml-2">
+                <CommentForm
+                  postId={postId}
+                  parentId={comment.id}
+                  onCommentPosted={handleReplyPosted}
+                  onCancel={() => setShowReplyForm(false)}
+                  placeholder={`Reply to ${comment.author}...`}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -221,7 +284,13 @@ function Comment({ comment, depth = 0 }) {
       {!collapsed && hasReplies && depth < maxDepth && (
         <div className="mt-1">
           {comment.replies.map((reply) => (
-            <Comment key={reply.id} comment={reply} depth={depth + 1} />
+            <Comment
+              key={reply.id}
+              comment={reply}
+              depth={depth + 1}
+              postId={postId}
+              onReplyPosted={onReplyPosted}
+            />
           ))}
         </div>
       )}

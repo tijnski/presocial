@@ -201,6 +201,61 @@ export class LemmyService {
   }
 
   /**
+   * Create a comment on a post (requires auth)
+   * @param postId - The post to comment on
+   * @param content - The comment content
+   * @param parentId - Optional parent comment ID for replies
+   * @param preSuiteUser - PreSuite username for attribution
+   */
+  async createComment(
+    postId: number,
+    content: string,
+    parentId?: number,
+    preSuiteUser?: string
+  ): Promise<SocialComment | null> {
+    if (!this.authToken) {
+      // Try to authenticate first
+      const authenticated = await this.authenticate();
+      if (!authenticated) {
+        console.warn('[Lemmy] Cannot comment: not authenticated');
+        return null;
+      }
+    }
+
+    try {
+      // Add attribution to the comment
+      const attributedContent = preSuiteUser
+        ? `${content}\n\n---\n*Posted via [PreSocial](https://presocial.presuite.eu) by ${preSuiteUser}*`
+        : content;
+
+      const response = await this.client.createComment({
+        post_id: postId,
+        content: attributedContent,
+        parent_id: parentId,
+      });
+
+      return this.transformComment(response.comment_view);
+    } catch (error) {
+      console.error('[Lemmy] Create comment failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if the service is authenticated
+   */
+  isAuthenticated(): boolean {
+    return !!this.authToken;
+  }
+
+  /**
+   * Get the bot username
+   */
+  getBotUsername(): string | undefined {
+    return this.config.botUsername;
+  }
+
+  /**
    * Transform Lemmy PostView to SocialPost
    */
   private transformPost(postView: any): SocialPost {

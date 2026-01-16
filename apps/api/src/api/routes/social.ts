@@ -540,6 +540,100 @@ social.get('/bookmark/:postId', async (c) => {
   }
 });
 
+// Comment validation schema
+const commentSchema = z.object({
+  postId: z.number().positive(),
+  content: z.string().min(1).max(10000),
+  parentId: z.number().positive().optional(),
+});
+
+/**
+ * POST /api/social/comment
+ * Create a comment on a post (requires authentication)
+ */
+social.post('/comment', async (c) => {
+  try {
+    // Require authentication
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    // Extract user info from JWT
+    const token = authHeader.split(' ')[1];
+    let userId: string;
+    let userName: string;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.sub || payload.user_id;
+      userName = payload.name || payload.email?.split('@')[0] || 'PreSocial User';
+      if (!userId) {
+        return c.json({ error: 'Invalid token' }, 401);
+      }
+    } catch {
+      return c.json({ error: 'Invalid token format' }, 401);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const params = commentSchema.safeParse(body);
+
+    if (!params.success) {
+      return c.json({
+        error: 'Invalid comment data',
+        details: params.error.issues,
+      }, 400);
+    }
+
+    const { postId, content, parentId } = params.data;
+
+    // Check if Lemmy bot is configured
+    if (!lemmyService.getBotUsername()) {
+      return c.json({
+        error: 'Comment posting is not configured',
+        message: 'Lemmy bot account not set up',
+      }, 503);
+    }
+
+    // Create the comment on Lemmy
+    const comment = await lemmyService.createComment(
+      postId,
+      content,
+      parentId,
+      userName
+    );
+
+    if (!comment) {
+      return c.json({
+        error: 'Failed to post comment',
+        message: 'Could not create comment on Lemmy',
+      }, 500);
+    }
+
+    return c.json({
+      success: true,
+      comment,
+    });
+  } catch (error) {
+    console.error('[Social API] Comment error:', error);
+    return c.json({ error: 'Failed to post comment' }, 500);
+  }
+});
+
+/**
+ * GET /api/social/comment/status
+ * Check if commenting is enabled (Lemmy bot configured)
+ */
+social.get('/comment/status', async (c) => {
+  const botUsername = lemmyService.getBotUsername();
+  const isConfigured = !!botUsername;
+
+  return c.json({
+    enabled: isConfigured,
+    botAccount: isConfigured ? botUsername : null,
+  });
+});
+
 /**
  * GET /api/social/health
  * Health check endpoint
