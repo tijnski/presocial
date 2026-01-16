@@ -43,6 +43,47 @@ function getUserVotes(userId: string): Map<number, 'up' | 'down'> {
   return userVotes.get(userId)!;
 }
 
+// In-memory bookmark storage (per user)
+// Stores full post data for saved posts
+interface SavedPost {
+  id: number;
+  title: string;
+  url: string;
+  score: number;
+  commentCount: number;
+  community: string;
+  author: string;
+  timestamp: string;
+  thumbnail?: string;
+  excerpt?: string;
+  savedAt: string;
+}
+
+const userBookmarks = new Map<string, Map<number, SavedPost>>();
+
+function getUserBookmarks(userId: string): Map<number, SavedPost> {
+  if (!userBookmarks.has(userId)) {
+    userBookmarks.set(userId, new Map());
+  }
+  return userBookmarks.get(userId)!;
+}
+
+const bookmarkSchema = z.object({
+  postId: z.number().positive(),
+  post: z.object({
+    id: z.number(),
+    title: z.string(),
+    url: z.string(),
+    score: z.number(),
+    commentCount: z.number(),
+    community: z.string(),
+    author: z.string(),
+    timestamp: z.string(),
+    thumbnail: z.string().optional(),
+    excerpt: z.string().optional(),
+  }).optional(),
+});
+
 /**
  * GET /api/social/search
  * Search for community discussions relevant to the query
@@ -347,6 +388,155 @@ social.get('/votes', async (c) => {
   } catch (error) {
     console.error('[Social API] Get votes error:', error);
     return c.json({ error: 'Failed to get votes' }, 500);
+  }
+});
+
+/**
+ * POST /api/social/bookmark
+ * Save/unsave a post (requires authentication)
+ */
+social.post('/bookmark', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const token = authHeader.split(' ')[1];
+    let userId: string;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.sub || payload.user_id;
+      if (!userId) {
+        return c.json({ error: 'Invalid token' }, 401);
+      }
+    } catch {
+      return c.json({ error: 'Invalid token format' }, 401);
+    }
+
+    const body = await c.req.json();
+    const params = bookmarkSchema.safeParse(body);
+
+    if (!params.success) {
+      return c.json({
+        error: 'Invalid bookmark data',
+        details: params.error.issues,
+      }, 400);
+    }
+
+    const { postId, post } = params.data;
+    const bookmarks = getUserBookmarks(userId);
+    const isCurrentlySaved = bookmarks.has(postId);
+
+    if (isCurrentlySaved) {
+      // Remove bookmark
+      bookmarks.delete(postId);
+      return c.json({
+        success: true,
+        postId,
+        saved: false,
+      });
+    } else {
+      // Add bookmark - need post data
+      if (!post) {
+        return c.json({ error: 'Post data required to save' }, 400);
+      }
+
+      const savedPost: SavedPost = {
+        ...post,
+        savedAt: new Date().toISOString(),
+      };
+      bookmarks.set(postId, savedPost);
+
+      return c.json({
+        success: true,
+        postId,
+        saved: true,
+      });
+    }
+  } catch (error) {
+    console.error('[Social API] Bookmark error:', error);
+    return c.json({ error: 'Failed to save post' }, 500);
+  }
+});
+
+/**
+ * GET /api/social/bookmarks
+ * Get user's saved posts (requires authentication)
+ */
+social.get('/bookmarks', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const token = authHeader.split(' ')[1];
+    let userId: string;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.sub || payload.user_id;
+      if (!userId) {
+        return c.json({ error: 'Invalid token' }, 401);
+      }
+    } catch {
+      return c.json({ error: 'Invalid token format' }, 401);
+    }
+
+    const bookmarks = getUserBookmarks(userId);
+    const savedPosts: SavedPost[] = [];
+    bookmarks.forEach((post) => {
+      savedPosts.push(post);
+    });
+
+    // Sort by savedAt descending (newest first)
+    savedPosts.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+
+    return c.json({
+      bookmarks: savedPosts,
+      count: savedPosts.length,
+    });
+  } catch (error) {
+    console.error('[Social API] Get bookmarks error:', error);
+    return c.json({ error: 'Failed to get saved posts' }, 500);
+  }
+});
+
+/**
+ * GET /api/social/bookmark/:postId
+ * Check if a post is bookmarked (requires authentication)
+ */
+social.get('/bookmark/:postId', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const token = authHeader.split(' ')[1];
+    let userId: string;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.sub || payload.user_id;
+      if (!userId) {
+        return c.json({ error: 'Invalid token' }, 401);
+      }
+    } catch {
+      return c.json({ error: 'Invalid token format' }, 401);
+    }
+
+    const postId = parseInt(c.req.param('postId'));
+    if (isNaN(postId)) {
+      return c.json({ error: 'Invalid post ID' }, 400);
+    }
+
+    const bookmarks = getUserBookmarks(userId);
+    const isSaved = bookmarks.has(postId);
+
+    return c.json({ postId, saved: isSaved });
+  } catch (error) {
+    console.error('[Social API] Check bookmark error:', error);
+    return c.json({ error: 'Failed to check bookmark status' }, 500);
   }
 });
 

@@ -2,33 +2,56 @@ import { Link } from 'react-router-dom';
 import { ArrowBigUp, ArrowBigDown, MessageSquare, Share2, Bookmark, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useVote } from '../context/VoteContext';
+import { useBookmark } from '../context/BookmarkContext';
 import { useAuth } from '../context/AuthContext';
 
 function PostCard({ post, compact = false }) {
   const formattedDate = formatDistanceToNow(new Date(post.timestamp), { addSuffix: true });
   const { vote, getVote, getAdjustedScore } = useVote();
+  const { toggleBookmark, isBookmarked } = useBookmark();
   const { isAuthenticated } = useAuth();
 
   const currentVote = getVote(post.id);
   const adjustedScore = getAdjustedScore(post.id, post.score);
+  const isSaved = isBookmarked(post.id);
 
   const handleUpvote = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isAuthenticated) {
-      // Could show a tooltip or redirect to login
-      return;
-    }
+    if (!isAuthenticated) return;
     await vote(post.id, 'up');
   };
 
   const handleDownvote = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isAuthenticated) {
-      return;
-    }
+    if (!isAuthenticated) return;
     await vote(post.id, 'down');
+  };
+
+  const handleBookmark = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) return;
+    await toggleBookmark(post);
+  };
+
+  const handleShare = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post.title,
+          url: post.url,
+        });
+      } catch (err) {
+        // User cancelled or error
+      }
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(post.url);
+    }
   };
 
   return (
@@ -156,8 +179,19 @@ function PostCard({ post, compact = false }) {
             </div>
 
             <ActionButton icon={<MessageSquare className="w-4 h-4" />} label={`${post.commentCount} comments`} />
-            <ActionButton icon={<Share2 className="w-4 h-4" />} label="Share" />
-            <ActionButton icon={<Bookmark className="w-4 h-4" />} label="Save" />
+            <ActionButton icon={<Share2 className="w-4 h-4" />} label="Share" onClick={handleShare} />
+            <button
+              onClick={handleBookmark}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+                isSaved
+                  ? 'bg-yellow-500/20 text-yellow-400'
+                  : 'text-gray-400 hover:bg-white/10 hover:text-white'
+              } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={isAuthenticated ? (isSaved ? 'Unsave' : 'Save') : 'Sign in to save'}
+            >
+              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+              <span className="hidden sm:inline">{isSaved ? 'Saved' : 'Save'}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -165,9 +199,12 @@ function PostCard({ post, compact = false }) {
   );
 }
 
-function ActionButton({ icon, label }) {
+function ActionButton({ icon, label, onClick }) {
   return (
-    <button className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium text-gray-400 hover:bg-white/10 hover:text-white transition-colors">
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+    >
       {icon}
       <span className="hidden sm:inline">{label}</span>
     </button>
