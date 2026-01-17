@@ -182,7 +182,7 @@ function LoginPage() {
             {/* Get PreMail Button */}
             <a
               href="https://presuite.eu/register"
-              className="bg-[#127FFF] font-semibold text-sm text-white w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity"
+              className="bg-[#0190FF] font-semibold text-sm text-white w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity"
             >
               <Mail className="mr-2 w-5 h-5" />
               <span>Get a @premail.site address</span>
@@ -230,7 +230,7 @@ function LoginPage() {
             <div className="text-right">
               <a
                 href="https://presuite.eu/forgot-password"
-                className="text-xs text-[#127FFF] hover:opacity-60 transition-opacity"
+                className="text-xs text-[#0190FF] hover:opacity-60 transition-opacity"
               >
                 Forgot password?
               </a>
@@ -239,7 +239,7 @@ function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-md font-semibold text-white text-sm transition-opacity hover:opacity-60 disabled:opacity-50 disabled:cursor-not-allowed bg-[#127FFF]"
+              className="w-full py-2.5 rounded-md font-semibold text-white text-sm transition-opacity hover:opacity-60 disabled:opacity-50 disabled:cursor-not-allowed bg-[#0190FF]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -269,9 +269,9 @@ function LoginPage() {
           <div className="text-xs text-gray-400 mt-6 text-center">
             <p>
               By logging in you agree to our{' '}
-              <a href="/terms" className="text-[#127FFF] underline hover:opacity-60 transition-opacity">Terms of Service</a>
+              <a href="/terms" className="text-[#0190FF] underline hover:opacity-60 transition-opacity">Terms of Service</a>
               {' '}and{' '}
-              <a href="/privacy" className="text-[#127FFF] underline hover:opacity-60 transition-opacity">Privacy Policy</a>.
+              <a href="/privacy" className="text-[#0190FF] underline hover:opacity-60 transition-opacity">Privacy Policy</a>.
             </p>
           </div>
         )}
