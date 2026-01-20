@@ -10,6 +10,7 @@ import PostPage from './pages/PostPage';
 import SearchPage from './pages/SearchPage';
 import LoginPage from './pages/LoginPage';
 import SavedPage from './pages/SavedPage';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               <Route path="saved" element={<SavedPage />} />
               <Route path="search" element={<SearchPage />} />
               <Route path="post/:id" element={<PostPage />} />
+              <Route path="user/:userId" element={<ProfilePage />} />
             </Route>
           </Routes>
         </BookmarkProvider>

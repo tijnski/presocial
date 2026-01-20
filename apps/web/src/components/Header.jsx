@@ -18,7 +18,8 @@ import {
   Share2,
   Twitter,
   Send,
-  Lock
+  Lock,
+  User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -257,6 +258,14 @@ function Header() {
                         <p className="text-xs text-gray-400">{user.email}</p>
                       </div>
                     </div>
+                    <Link
+                      to={`/user/${user.id}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-3 w-full rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                      <User className="w-5 h-5" />
+                      <span className="font-medium">View Profile</span>
+                    </Link>
                     <button
                       onClick={() => {
                         setShowSettings(true);
@@ -330,12 +339,21 @@ function Header() {
                     <p className="text-sm truncate" style={{ color: colors.text.muted }}>{user?.email}</p>
                   </div>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 text-red-400 hover:text-red-300 text-sm font-medium transition-colors"
-                >
-                  <LogOut className="w-4 h-4" /> Sign out
-                </button>
+                <div className="flex flex-col gap-2">
+                  <Link
+                    to={`/user/${user?.id}`}
+                    onClick={() => setShowSettings(false)}
+                    className="flex items-center gap-2 text-social hover:text-social/80 text-sm font-medium transition-colors"
+                  >
+                    <User className="w-4 h-4" /> View Profile
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 text-red-400 hover:text-red-300 text-sm font-medium transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" /> Sign out
+                  </button>
+                </div>
               </div>
 
               {/* Notifications Section */}

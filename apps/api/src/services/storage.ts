@@ -9,6 +9,7 @@ import { join, dirname } from 'path';
 const STORAGE_DIR = process.env.STORAGE_DIR || join(process.cwd(), 'data');
 const VOTES_FILE = join(STORAGE_DIR, 'votes.json');
 const BOOKMARKS_FILE = join(STORAGE_DIR, 'bookmarks.json');
+const PROFILES_FILE = join(STORAGE_DIR, 'profiles.json');
 
 // Auto-save interval (5 seconds)
 const AUTO_SAVE_INTERVAL = 5000;
@@ -16,10 +17,12 @@ const AUTO_SAVE_INTERVAL = 5000;
 // Track if data has been modified since last save
 let votesDirty = false;
 let bookmarksDirty = false;
+let profilesDirty = false;
 
 // In-memory data structures
 let userVotes: Map<string, Map<number, 'up' | 'down'>> = new Map();
 let userBookmarks: Map<string, Map<number, SavedPost>> = new Map();
+let userProfiles: Map<string, UserProfile> = new Map();
 
 export interface SavedPost {
   id: number;
@@ -33,6 +36,17 @@ export interface SavedPost {
   thumbnail?: string;
   excerpt?: string;
   savedAt: string;
+}
+
+export interface UserProfile {
+  bio: string;
+  avatarUrl?: string;
+  updatedAt: string;
+}
+
+export interface UserStats {
+  votesCount: number;
+  bookmarksCount: number;
 }
 
 /**
@@ -96,6 +110,27 @@ function loadBookmarks(): void {
 }
 
 /**
+ * Load profiles from file
+ */
+function loadProfiles(): void {
+  try {
+    if (existsSync(PROFILES_FILE)) {
+      const data = JSON.parse(readFileSync(PROFILES_FILE, 'utf-8'));
+      userProfiles = new Map();
+
+      for (const [userId, profile] of Object.entries(data)) {
+        userProfiles.set(userId, profile as UserProfile);
+      }
+
+      console.log(`[Storage] Loaded profiles for ${userProfiles.size} users`);
+    }
+  } catch (error) {
+    console.error('[Storage] Failed to load profiles:', error);
+    userProfiles = new Map();
+  }
+}
+
+/**
  * Save votes to file
  */
 function saveVotes(): void {
@@ -142,6 +177,28 @@ function saveBookmarks(): void {
     console.debug('[Storage] Saved bookmarks to disk');
   } catch (error) {
     console.error('[Storage] Failed to save bookmarks:', error);
+  }
+}
+
+/**
+ * Save profiles to file
+ */
+function saveProfiles(): void {
+  if (!profilesDirty) return;
+
+  try {
+    ensureStorageDir();
+
+    const data: Record<string, UserProfile> = {};
+    userProfiles.forEach((profile, userId) => {
+      data[userId] = profile;
+    });
+
+    writeFileSync(PROFILES_FILE, JSON.stringify(data, null, 2));
+    profilesDirty = false;
+    console.debug('[Storage] Saved profiles to disk');
+  } catch (error) {
+    console.error('[Storage] Failed to save profiles:', error);
   }
 }
 
@@ -232,6 +289,41 @@ export function getUserBookmarksList(userId: string): SavedPost[] {
 }
 
 /**
+ * Get user's profile
+ */
+export function getUserProfile(userId: string): UserProfile | null {
+  return userProfiles.get(userId) || null;
+}
+
+/**
+ * Set user's profile (partial update)
+ */
+export function setUserProfile(userId: string, profile: Partial<UserProfile>): UserProfile {
+  const existing = userProfiles.get(userId) || { bio: '', updatedAt: new Date().toISOString() };
+  const updated: UserProfile = {
+    ...existing,
+    ...profile,
+    updatedAt: new Date().toISOString(),
+  };
+  userProfiles.set(userId, updated);
+  profilesDirty = true;
+  return updated;
+}
+
+/**
+ * Get user's activity stats (votes and bookmarks count)
+ */
+export function getUserStats(userId: string): UserStats {
+  const votes = userVotes.get(userId);
+  const bookmarks = userBookmarks.get(userId);
+
+  return {
+    votesCount: votes ? votes.size : 0,
+    bookmarksCount: bookmarks ? bookmarks.size : 0,
+  };
+}
+
+/**
  * Get storage statistics
  */
 export function getStorageStats(): { users: number; totalVotes: number; totalBookmarks: number } {
@@ -261,11 +353,13 @@ export function initStorage(): void {
   ensureStorageDir();
   loadVotes();
   loadBookmarks();
+  loadProfiles();
 
   // Setup auto-save interval
   setInterval(() => {
     saveVotes();
     saveBookmarks();
+    saveProfiles();
   }, AUTO_SAVE_INTERVAL);
 
   // Save on process exit
@@ -273,6 +367,7 @@ export function initStorage(): void {
     console.log('[Storage] Saving data before exit...');
     saveVotes();
     saveBookmarks();
+    saveProfiles();
     process.exit(0);
   });
 
@@ -280,6 +375,7 @@ export function initStorage(): void {
     console.log('[Storage] Saving data before exit...');
     saveVotes();
     saveBookmarks();
+    saveProfiles();
     process.exit(0);
   });
 
@@ -292,6 +388,8 @@ export function initStorage(): void {
 export function flushStorage(): void {
   votesDirty = true;
   bookmarksDirty = true;
+  profilesDirty = true;
   saveVotes();
   saveBookmarks();
+  saveProfiles();
 }

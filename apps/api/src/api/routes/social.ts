@@ -18,7 +18,12 @@ import {
   removeUserBookmark,
   isPostBookmarked,
   getUserBookmarksList,
+  getUserProfile,
+  setUserProfile,
+  getUserStats,
   type SavedPost,
+  type UserProfile,
+  type UserStats,
 } from '../../services/storage';
 import { authMiddleware, getAuthUser, type AuthUser } from '../middleware/auth';
 import type { SearchResponse, PostResponse, TrendingResponse } from '../../types';
@@ -57,6 +62,11 @@ const bookmarkSchema = z.object({
     thumbnail: z.string().optional(),
     excerpt: z.string().optional(),
   }).optional(),
+});
+
+const profileUpdateSchema = z.object({
+  bio: z.string().max(500).optional(),
+  avatarUrl: z.string().url().optional(),
 });
 
 /**
@@ -441,6 +451,90 @@ social.get('/bookmark/:postId', authMiddleware(), async (c) => {
   } catch (error) {
     console.error('[Social API] Check bookmark error:', error);
     return c.json({ error: 'Failed to check bookmark status' }, 500);
+  }
+});
+
+/**
+ * GET /api/social/user/:userId
+ * Get user profile and stats (auth optional)
+ */
+social.get('/user/:userId', async (c) => {
+  try {
+    const userId = c.req.param('userId');
+
+    if (!userId) {
+      return c.json({ error: 'User ID is required' }, 400);
+    }
+
+    // Get profile data
+    const profile = getUserProfile(userId);
+    const stats = getUserStats(userId);
+
+    // Check if this is the user's own profile (if authenticated)
+    const authHeader = c.req.header('Authorization');
+    let isOwnProfile = false;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.slice(7);
+        // Decode JWT payload to get user ID
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        isOwnProfile = payload.sub === userId;
+      } catch {
+        // Invalid token, ignore
+      }
+    }
+
+    return c.json({
+      userId,
+      bio: profile?.bio || '',
+      avatarUrl: profile?.avatarUrl || null,
+      stats,
+      isOwnProfile,
+      updatedAt: profile?.updatedAt || null,
+    });
+  } catch (error) {
+    console.error('[Social API] Get user profile error:', error);
+    return c.json({ error: 'Failed to get user profile' }, 500);
+  }
+});
+
+/**
+ * PATCH /api/social/user/profile
+ * Update own profile (requires authentication)
+ */
+social.patch('/user/profile', authMiddleware(), async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const body = await c.req.json();
+    const params = profileUpdateSchema.safeParse(body);
+
+    if (!params.success) {
+      return c.json({
+        error: 'Invalid profile data',
+        details: params.error.issues,
+      }, 400);
+    }
+
+    const { bio, avatarUrl } = params.data;
+
+    // Update profile
+    const updatedProfile = setUserProfile(user.id, {
+      ...(bio !== undefined && { bio }),
+      ...(avatarUrl !== undefined && { avatarUrl }),
+    });
+
+    return c.json({
+      success: true,
+      profile: updatedProfile,
+    });
+  } catch (error) {
+    console.error('[Social API] Update profile error:', error);
+    return c.json({ error: 'Failed to update profile' }, 500);
   }
 });
 

@@ -81,6 +81,32 @@ class PreSocialService {
   async getHealth() {
     return this.request('/health');
   }
+
+  /**
+   * Get user profile
+   */
+  async getUserProfile(userId) {
+    const token = localStorage.getItem('presuite_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    return this.request(`/user/${userId}`, { headers });
+  }
+
+  /**
+   * Update own profile
+   */
+  async updateProfile(data) {
+    const token = localStorage.getItem('presuite_token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    return this.request('/user/profile', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 // Export singleton instance
