@@ -23,6 +23,16 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+function PresearchLogo({ className }) {
+  return (
+    <svg viewBox="0 0 370 370" className={className} fill="currentColor">
+      <path d="M135.17,225.38h32.71a63,63,0,0,0,27.06-6,68,68,0,0,0,21-16.16,75,75,0,0,0,13.33-23.42,76.44,76.44,0,0,0,4.84-27.06,66.16,66.16,0,0,0-5.25-26.25,80.79,80.79,0,0,0-14.13-23,70.91,70.91,0,0,0-21.41-16.55,58,58,0,0,0-27-6.47h-86V289.19h54.92Zm0-94.5H163a15,15,0,0,1,10.1,4.85c3.23,3.23,5.25,8.89,5.25,17.77s-2,14.13-4.85,17c-2.42,2.83-5.65,4.85-9.28,4.85H135.17Z"/>
+      <path d="M9.44,30.1V339.9A20.1,20.1,0,0,0,29.54,360h309.8a20.1,20.1,0,0,0,20.1-20.1V30.1A20.1,20.1,0,0,0,339.34,10H29.54A20.1,20.1,0,0,0,9.44,30.1ZM298.11,318.77H70.35a20.1,20.1,0,0,1-20.11-20.1V70.91a20.1,20.1,0,0,1,20.11-20.1H298.11a20.1,20.1,0,0,1,20.1,20.1V298.67A20.1,20.1,0,0,1,298.11,318.77Z"/>
+      <rect x="159.8" y="250.02" width="128.83" height="39.58"/>
+    </svg>
+  );
+}
+
 // Settings panel colors (matching PreSuite)
 const colors = {
   bg: { panel: "#212224", elevated: "#2E2E2E" },
@@ -154,13 +164,8 @@ function Header() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-social to-presearch flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white hidden sm:block">
-                Pre<span className="text-social">Social</span>
-              </span>
+            <Link to="/" className="flex-shrink-0">
+              <PresearchLogo className="w-10 h-10 text-[#0190FF]" />
             </Link>
 
             {/* Search bar - centered */}
