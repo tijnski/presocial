@@ -204,10 +204,10 @@ function Header() {
               ) : (
                 <Link
                   to="/login"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-social to-presearch text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#127FFF] text-white text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   <LogIn className="w-4 h-4" />
-                  <span className="hidden sm:inline">Sign In</span>
+                  <span className="hidden sm:inline">Login</span>
                 </Link>
               )}
 
@@ -296,10 +296,10 @@ function Header() {
                   <Link
                     to="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-3 px-3 py-3 rounded-lg text-white bg-gradient-to-r from-social to-presearch"
+                    className="flex items-center gap-3 px-4 py-3 rounded-full text-white bg-[#127FFF]"
                   >
                     <LogIn className="w-5 h-5" />
-                    <span className="font-medium">Sign In</span>
+                    <span className="font-medium">Login</span>
                   </Link>
                 )}
               </div>
