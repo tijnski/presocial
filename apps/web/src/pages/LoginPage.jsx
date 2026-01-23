@@ -1,8 +1,18 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, Wallet, X, MessageCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Wallet, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { web3Login, isWeb3Available, Web3AuthError } from '../services/web3Auth';
+
+function PresearchLogo({ className }) {
+  return (
+    <svg viewBox="0 0 370 370" className={className} fill="currentColor">
+      <path d="M135.17,225.38h32.71a63,63,0,0,0,27.06-6,68,68,0,0,0,21-16.16,75,75,0,0,0,13.33-23.42,76.44,76.44,0,0,0,4.84-27.06,66.16,66.16,0,0,0-5.25-26.25,80.79,80.79,0,0,0-14.13-23,70.91,70.91,0,0,0-21.41-16.55,58,58,0,0,0-27-6.47h-86V289.19h54.92Zm0-94.5H163a15,15,0,0,1,10.1,4.85c3.23,3.23,5.25,8.89,5.25,17.77s-2,14.13-4.85,17c-2.42,2.83-5.65,4.85-9.28,4.85H135.17Z"/>
+      <path d="M9.44,30.1V339.9A20.1,20.1,0,0,0,29.54,360h309.8a20.1,20.1,0,0,0,20.1-20.1V30.1A20.1,20.1,0,0,0,339.34,10H29.54A20.1,20.1,0,0,0,9.44,30.1ZM298.11,318.77H70.35a20.1,20.1,0,0,1-20.11-20.1V70.91a20.1,20.1,0,0,1,20.11-20.1H298.11a20.1,20.1,0,0,1,20.1,20.1V298.67A20.1,20.1,0,0,1,298.11,318.77Z"/>
+      <rect x="159.8" y="250.02" width="128.83" height="39.58"/>
+    </svg>
+  );
+}
 
 function LoginPage() {
   const [loginMethod, setLoginMethod] = useState(null); // null, 'email'
@@ -109,8 +119,8 @@ function LoginPage() {
 
         {/* Logo & Header */}
         <div className="flex justify-between items-start mb-6">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-            <MessageCircle className="w-6 h-6 text-white" />
+          <div className="w-10 h-10">
+            <PresearchLogo className="w-full h-full text-[#127FFF]" />
           </div>
           {!loginMethod && (
             <Link
@@ -182,7 +192,7 @@ function LoginPage() {
             {/* Get PreMail Button */}
             <a
               href="https://presuite.eu/register"
-              className="bg-[#0190FF] font-semibold text-sm text-white w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity"
+              className="bg-[#127FFF] font-semibold text-sm text-white w-full justify-center p-2.5 rounded-md flex items-center hover:opacity-60 transition-opacity"
             >
               <Mail className="mr-2 w-5 h-5" />
               <span>Get a @premail.site address</span>
@@ -230,7 +240,7 @@ function LoginPage() {
             <div className="text-right">
               <a
                 href="https://presuite.eu/forgot-password"
-                className="text-xs text-[#0190FF] hover:opacity-60 transition-opacity"
+                className="text-xs text-[#127FFF] hover:opacity-60 transition-opacity"
               >
                 Forgot password?
               </a>
@@ -239,7 +249,7 @@ function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-md font-semibold text-white text-sm transition-opacity hover:opacity-60 disabled:opacity-50 disabled:cursor-not-allowed bg-[#0190FF]"
+              className="w-full py-2.5 rounded-md font-semibold text-white text-sm transition-opacity hover:opacity-60 disabled:opacity-50 disabled:cursor-not-allowed bg-[#127FFF]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -269,9 +279,9 @@ function LoginPage() {
           <div className="text-xs text-gray-400 mt-6 text-center">
             <p>
               By logging in you agree to our{' '}
-              <a href="/terms" className="text-[#0190FF] underline hover:opacity-60 transition-opacity">Terms of Service</a>
+              <a href="/terms" className="text-[#127FFF] underline hover:opacity-60 transition-opacity">Terms of Service</a>
               {' '}and{' '}
-              <a href="/privacy" className="text-[#0190FF] underline hover:opacity-60 transition-opacity">Privacy Policy</a>.
+              <a href="/privacy" className="text-[#127FFF] underline hover:opacity-60 transition-opacity">Privacy Policy</a>.
             </p>
           </div>
         )}
