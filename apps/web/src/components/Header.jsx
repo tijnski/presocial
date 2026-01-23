@@ -186,7 +186,7 @@ function Header() {
             <div className="flex items-center gap-2">
               {/* Desktop nav links */}
               <nav className="hidden md:flex items-center gap-1 mr-2">
-                <NavLink to="/" icon={<Home className="w-5 h-5" />} label="Feed" />
+                <NavLink to="/" icon={<Home className="w-5 h-5" />} label="Home" />
                 <NavLink to="/trending" icon={<TrendingUp className="w-5 h-5" />} label="Trending" />
                 <NavLink to="/communities" icon={<Users className="w-5 h-5" />} label="Communities" />
               </nav>
@@ -246,7 +246,7 @@ function Header() {
         {mobileMenuOpen && (
           <div className="md:hidden bg-dark-800 border-t border-white/10 animate-slide-up">
             <nav className="px-4 py-3 space-y-1">
-              <MobileNavLink to="/" icon={<Home className="w-5 h-5" />} label="Feed" onClick={() => setMobileMenuOpen(false)} />
+              <MobileNavLink to="/" icon={<Home className="w-5 h-5" />} label="Home" onClick={() => setMobileMenuOpen(false)} />
               <MobileNavLink to="/trending" icon={<TrendingUp className="w-5 h-5" />} label="Trending" onClick={() => setMobileMenuOpen(false)} />
               <MobileNavLink to="/communities" icon={<Users className="w-5 h-5" />} label="Communities" onClick={() => setMobileMenuOpen(false)} />
 
